@@ -14,6 +14,17 @@ import time
 from datetime import datetime as dt
 from datetime import timedelta
 
+def log(msg, output=""):
+	""" Afficher le log dans la sortie standard ou dans un fichier 
+		Si rien n'est spécifié dans output : sortie standard
+		Si un nom est spécifé un fichier avec ce nom sera créé """
+	if output != "":
+		logFile = open(output, 'a')
+		print(str(dt.now()) + " -> " + str(msg), file=logFile)
+		logFile.close()
+	else:
+		print(str(dt.now()) + " -> " + str(msg))
+
 
 class arduino():
 	def __init__(self, port="/dev/ttyACM0", bitrate=115200, auto_connect = False):
@@ -39,7 +50,7 @@ class arduino():
 			Dans le cas d'une lecture, renvoie la valeur lue
 		"""
 
-		# print(f"Message envoyé à l'arduino : {message}")
+		# log(f"Message envoyé à l'arduino : {message}")
 		
 		# On détecte si c'est un message de read ou write
 		if message.split(",")[-1] == "-1":
@@ -49,7 +60,7 @@ class arduino():
 		
 		# Envoi du message
 		message += "\r" # Ajout du retour chariot
-		# print(f"Message envoyé à l'arduino : {message}")
+		# log(f"Message envoyé à l'arduino : {message}")
 		self.arduino.write(message.encode())
 
 		# On attends que l'arduino renvoie le message
@@ -57,28 +68,39 @@ class arduino():
 		while self.arduino.inWaiting()==0: 
 			# Si le timeout est dépassé
 			if dt.now() > now + timedelta(seconds=response_timeout):
-				print(f"Aucune réponse de l'arduino après {response_timeout} sec")
+				log(f"Aucune réponse de l'arduino après {response_timeout} sec")
 				return False	
 	
 		# Si l'arduino a renvoyé un message
 		if  self.arduino.inWaiting() > 0: 
 			# Lecture et nettoyage de la com
 			answer = self.arduino.readline()
-			# print(f"Réponse de l'arduino : {answer}")
+			# log(f"Réponse de l'arduino : {answer}")
 			self.arduino.flushInput()
 			
 			# Suivant le type écriture ou lecture, on interprête le résultat
 			if message_type == "write":
+				# Si écriture l'arduino doit répondre le même message que celui qui lmui a été envoyé
 				# Si la réponse est = au message initial (message correctement envoyé et sortie activée)
 				if answer == message[:-1].encode():
-					# print("Com Arduino OK")
+					# log("Com Arduino OK")
 					return True
 				else:
-					# print("Com Arduino NOK")
+					# log("Com Arduino NOK")
 					return False
 				
 			elif message_type == "read":
+				# Si message de lecture envoyé, l'arduino renvoie soit le même message avec la valeur mesurée soit un message d'erreur commençant par 9
 				answer = answer[:-1].decode()
+				if answer.split(",")[0] == "9":
+					# Si c'est un message d'erreur
+					# Le 2e chiffre sera le type de message envoyé qui a causé l'erreur
+					if answer.split(",")[1] == "5":
+						# Si c'est la sonde de température dallas
+						if answer.split(",")[2] == "0":
+							# Si erreur de CRC
+							log("Erreur de crc sur la sonde dallas de l'arduino")
+
 				# Suivant le type on renvoie un bool ou une valeur
 				if answer.split(",")[0] == "1":
 					# si bool
@@ -87,23 +109,23 @@ class arduino():
 					elif answer.split(",")[2] == "1":
 						return True
 					else:
-						print(f"Erreur de communication, le message '{answer}' renvoyé par l'aruino est invalide")
+						log(f"Erreur de communication, le message '{answer}' renvoyé par l'aruino est invalide")
 				elif answer.split(",")[0] == "2":
 					try:
 						int(answer.split(",")[2])
 					except ValueError:
-						print(f"Valeur renvoyée par l'arduino incorrecte : {answer}")
+						log(f"Valeur renvoyée par l'arduino incorrecte : {answer}")
 					else:
 						return int(answer.split(",")[2])
 				elif answer.split(",")[0] == "5":
 					try:
 						float(answer.split(",")[2])
 					except ValueError:
-						print(f"Valeur renvoyée par l'arduino incorrecte : {answer}")
+						log(f"Valeur renvoyée par l'arduino incorrecte : {answer}")
 					else:
 						return float(answer.split(",")[2])
 				else:
-					print(f"Erreur de communication, le message '{answer}' renvoyé par l'aruino est invalide")
+					log(f"Erreur de communication, le message '{answer}' renvoyé par l'aruino est invalide")
 
 
 
