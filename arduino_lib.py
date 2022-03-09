@@ -30,15 +30,15 @@ class arduino():
 	def __init__(self, port="/dev/ttyACM0", bitrate=115200, auto_connect = False):
 		self.port = port
 		self.bitrate = bitrate
+		self.pin_state = [0 for i in range(55)]
 		if auto_connect:
 			self.connect()
-		self.pin_state = [0 for i in range(55)]
 
 
 	def connect(self):
 		""" Ouverture du port série """
 		self.arduino = serial.Serial(self.port, self.bitrate, timeout=1)
-		time.sleep(1)
+		time.sleep(2)
 		
 		if not self.arduino.isOpen():
 			raise ConnectionError("Erreur de connexion avec l'arduino")
